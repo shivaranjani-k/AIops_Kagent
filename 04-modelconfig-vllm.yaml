@@ -1,0 +1,34 @@
+# Option B: self-hosted vLLM (prompts and cluster data stay on-prem).
+# vLLM exposes an OpenAI-compatible API, so the provider is "OpenAI" with a baseUrl.
+#
+# Prerequisites:
+#   - vLLM running in-cluster, e.g. a Service "vllm" in namespace "ai-infra" on port 8000
+#   - a model that supports tool/function calling, served with tool calling enabled
+#     (vLLM flags: --enable-auto-tool-choice --tool-call-parser <parser for your model>)
+#
+# The key only matters if vLLM was started with --api-key; otherwise any value works.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kagent-vllm
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: kagent-poc
+type: Opaque
+stringData:
+  API_KEY: "REPLACE_WITH_VLLM_API_KEY_OR_ANY_VALUE"
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: vllm-llama
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: kagent-poc
+spec:
+  provider: OpenAI
+  model: meta-llama/Llama-3.1-8B-Instruct   # must match the --model vLLM is serving
+  apiKeySecret: kagent-vllm
+  apiKeySecretKey: API_KEY
+  openAI:
+    baseUrl: http://vllm.ai-infra.svc.cluster.local:8000/v1

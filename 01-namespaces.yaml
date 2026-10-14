@@ -1,0 +1,16 @@
+# Namespaces for the kagent POC.
+#   kagent     - kagent control plane, agents, tool server, ModelConfigs, Secrets
+#   demo-apps  - deliberately broken workloads used for the troubleshooting demo
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kagent
+  labels:
+    app.kubernetes.io/part-of: kagent-poc
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-apps
+  labels:
+    app.kubernetes.io/part-of: kagent-poc

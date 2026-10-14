@@ -1,0 +1,74 @@
+# Deliberately broken workloads for the POC demo (namespace demo-apps).
+# Each one maps to a use case on the "Real-World Use Cases" slide.
+# Delete them after the demo: kubectl delete -f 06-demo-workloads.yaml
+---
+# 1. Pod crash investigation: allocates 200M with a 128Mi limit -> OOMKilled -> CrashLoopBackOff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-demo
+  namespace: demo-apps
+  labels: { app: oom-demo, app.kubernetes.io/part-of: kagent-poc }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: oom-demo }
+  template:
+    metadata:
+      labels: { app: oom-demo }
+    spec:
+      containers:
+        - name: app
+          image: polinux/stress:1.0.4
+          command: ["stress"]
+          args: ["--vm", "1", "--vm-bytes", "200M", "--vm-hang", "1"]
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { memory: 128Mi }
+---
+# 2. Failed deployment: image tag does not exist -> ImagePullBackOff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-image
+  namespace: demo-apps
+  labels: { app: bad-image, app.kubernetes.io/part-of: kagent-poc }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: bad-image }
+  template:
+    metadata:
+      labels: { app: bad-image }
+    spec:
+      containers:
+        - name: web
+          image: nginx:9.99.99-does-not-exist
+          ports: [{ containerPort: 80 }]
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits:   { memory: 64Mi }
+---
+# 3. High CPU usage: burns 2 cores against a 500m limit -> sustained throttling
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-hog
+  namespace: demo-apps
+  labels: { app: cpu-hog, app.kubernetes.io/part-of: kagent-poc }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: cpu-hog }
+  template:
+    metadata:
+      labels: { app: cpu-hog }
+    spec:
+      containers:
+        - name: app
+          image: polinux/stress:1.0.4
+          command: ["stress"]
+          args: ["--cpu", "2"]
+          resources:
+            requests: { cpu: 100m, memory: 32Mi }
+            limits:   { cpu: 500m, memory: 64Mi }

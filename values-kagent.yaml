@@ -1,0 +1,85 @@
+# Helm values for the kagent POC (written against kagent v0.10.3 / kagent-tools 0.3.0).
+#
+#   helm install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
+#     -n kagent -f values-kagent.yaml
+#
+# Design goals: no secrets in this file, read-only tool server, only the agents we need.
+
+# ---------------------------------------------------------------------------
+# LLM: Helm generates a ModelConfig named "default-model-config" from this block.
+# The key is read from the Secret in 02-llm-secret.yaml (no apiKey here, so the
+# chart will not create or overwrite that Secret).
+# ---------------------------------------------------------------------------
+providers:
+  default: openAI
+  openAI:
+    provider: OpenAI
+    model: "gpt-4.1-mini"
+    apiKeySecretRef: kagent-openai
+    apiKeySecretKey: OPENAI_API_KEY
+
+# ---------------------------------------------------------------------------
+# MCP tool server. By default this chart grants the tool server cluster-admin
+# ("*" on everything). These settings make it read-only at BOTH layers:
+#   rbac.readOnly  -> ClusterRole with get/list/watch only
+#   --read-only    -> write tools (patch, create, delete, exec, scale...) are not registered
+# ---------------------------------------------------------------------------
+kagent-tools:
+  enabled: true
+  rbac:
+    create: true
+    readOnly: true
+    allowSecrets: false          # never let agents read Secrets
+    additionalRules:
+      # The built-in read-only role omits nodes; cluster health checks need them.
+      - apiGroups: [""]
+        resources: ["nodes"]
+        verbs: ["get", "list", "watch"]
+      # CPU/memory usage from metrics-server (kubectl top equivalent).
+      - apiGroups: ["metrics.k8s.io"]
+        resources: ["pods", "nodes"]
+        verbs: ["get", "list"]
+    # Optional: restrict the tool server to specific namespaces instead of the whole
+    # cluster. The install namespace must be included. Note: node rules above are
+    # cluster-scoped and stop working in namespace mode.
+    # namespaces: ["kagent", "demo-apps"]
+  tools:
+    loglevel: "info"
+    # Only load the providers the POC needs. "utils" is left out on purpose:
+    # it contains a "shell" tool.
+    enabledTools:
+      - k8s
+      - prometheus
+    args:
+      - "--read-only"
+    prometheus:
+      # Adjust to your Prometheus service. Agents must also pass this URL in
+      # their tool calls (see the systemMessage in 05-agent-poc-troubleshooter.yaml).
+      url: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+
+# ---------------------------------------------------------------------------
+# Built-in agents. The stock k8s-agent ships write tools (patch, delete, exec,
+# apply), so it is replaced by our read-only poc-troubleshooter.
+# ---------------------------------------------------------------------------
+k8s-agent:
+  enabled: false
+promql-agent:
+  enabled: true                  # helps write PromQL; has no cluster tools
+observability-agent:
+  enabled: false                 # needs a Grafana service-account token; enable later
+grafana-mcp:
+  enabled: false
+helm-agent:
+  enabled: false
+kgateway-agent:
+  enabled: false
+istio-agent:
+  enabled: false
+argo-rollouts-agent:
+  enabled: false
+cilium-policy-agent:
+  enabled: false
+cilium-manager-agent:
+  enabled: false
+cilium-debug-agent:
+  enabled: false

@@ -1,0 +1,14 @@
+# Option A: external LLM API (fastest POC path).
+# Requires the Secret from 02-llm-secret.yaml.
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: openai-gpt
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: kagent-poc
+spec:
+  provider: OpenAI
+  model: gpt-4.1-mini
+  apiKeySecret: kagent-openai          # Secret name (same namespace)
+  apiKeySecretKey: OPENAI_API_KEY      # key inside that Secret
